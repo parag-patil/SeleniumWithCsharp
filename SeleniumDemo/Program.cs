@@ -58,6 +58,9 @@ namespace SeleniumDemo
             }
             var csv = innerHtml.Split(':');
             DataTable d = createDataTable(csv);
+            d.TableName = "symbolData";
+            System.IO.StringWriter writer = new System.IO.StringWriter();
+            d.WriteXml(writer, false);
             //Close the browser
             driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromMinutes(5);
 
@@ -73,15 +76,23 @@ namespace SeleniumDemo
                 var valueArray = str.Split(',');
                 if (idx == 0)
                 {
-                    for(int i=0;i<valueArray.Length;i++)
+                    for (int i = 0; i < valueArray.Length; i++)
                     {
-                        dtCSV.Columns.Add(valueArray[i], typeof(String));
+                        dtCSV.Columns.Add(valueArray[i].Replace("\"", ""), typeof(String));
                     }
                     idx++;
-                    
-                } else
+
+                }
+                else
                 {
-                    dtCSV.Rows.Add(str);
+                    DataRow dr;
+                    dr = dtCSV.NewRow();
+                    for (int i = 0; i < valueArray.Length; i++)
+                    {
+                        dr[i] = valueArray[i].Replace("\"","");
+                    }
+                    dtCSV.Rows.Add(dr);
+
                 }
             }
             return dtCSV;
