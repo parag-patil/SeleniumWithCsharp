@@ -43,7 +43,7 @@ namespace SeleniumDemo
             //Find and set Instrument Type Dropdown
             IWebElement dateRangeElement = driver.FindElement(By.Name("dateRange"));
             var dateRange = new SelectElement(dateRangeElement);
-            dateRange.SelectByText("1 Day");
+            dateRange.SelectByText("24 Months");
 
             driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
             IWebElement getButton = driver.FindElement(By.Name("getButton"));
