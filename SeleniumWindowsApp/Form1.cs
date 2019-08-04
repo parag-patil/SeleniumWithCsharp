@@ -15,6 +15,7 @@ namespace SeleniumWindowsApp
     {
         const string url = "https://www.nseindia.com/products/content/derivatives/equities/historical_fo.htm";
         DataTable data;
+        BindingSource bs = new BindingSource();
         public Form1()
         {
             InitializeComponent();
@@ -59,7 +60,10 @@ namespace SeleniumWindowsApp
             {
                 data.Rows.Remove(row);
             }
-            gvData.DataSource = data;
+
+            bs.DataSource = data;
+            advancedDataGridView1.DataSource = bs;
+            advancedDataGridView1.AutoGenerateColumns = true;
         }
 
         private void BtnSave_Click(object sender, EventArgs e)
@@ -81,16 +85,26 @@ namespace SeleniumWindowsApp
         private void Button1_Click(object sender, EventArgs e)
         {
             SeleniumBO bo = new SeleniumBO("");
-            var r = bo.ImpliedVolatility("CE", "489.65", 440, 10, 0.073972602739726, 0, 92.8, 30);
-            MessageBox.Show("IV is " + r);
-            var d = bo.OptionDelta("CE", 489.65, 440, 0.073972602739726, 10, 125.79, 0);
-            MessageBox.Show("Delta is " + d);
-            var t = bo.OptionTheta("CE", 489.65, 440, 0.073972602739726, 10, 125.79, 0);
-            MessageBox.Show("Theta is " + t);
-            var g = bo.OptionGamma(489.65, 440, 0.073972602739726, 10,125.79, 0);
-            MessageBox.Show("Gamma is " + g);
-            var v = bo.OptionVega(489.65, 440, 0.073972602739726, 10,125.79,0);
-            MessageBox.Show("Vega is " + v);
+            var r = bo.ImpliedVolatility("CE", 489.65, 440, 0.1, 0.073972602739726, 0, 92.8, 0.3);
+            MessageBox.Show("IV- Actual IV = 125.79%, Calculated IV = " + r);
+            var d = bo.OptionDelta("CE", 489.65, 440,  0.1, 0.073972602739726, 125.79/100, 0);
+            MessageBox.Show("Delta - Actual = 0.69, Calculated = " + d);
+            var t = bo.OptionTheta("CE", 489.65, 440,  0.1, 0.073972602739726, 125.79/100, 0);
+            MessageBox.Show("Theta - Actual = -1.16, Calculated = " + t);
+            var g = bo.OptionGamma(489.65, 440,  0.1, 0.073972602739726, 125.79/100, 0);
+            MessageBox.Show("Gamma - Actual = 0.0021, Calculated = " + g);
+            var v = bo.OptionVega(489.65, 440,  0.1, 0.073972602739726, 125.79/100,0);
+            MessageBox.Show("Vega - Actual = 0.467, Calculated = " + v);
+        }
+
+        private void AdvancedDataGridView1_SortStringChanged(object sender, EventArgs e)
+        {
+            bs.Sort = advancedDataGridView1.SortString;
+        }
+
+        private void AdvancedDataGridView1_FilterStringChanged(object sender, EventArgs e)
+        {
+            bs.Filter = advancedDataGridView1.FilterString;
         }
     }
 }

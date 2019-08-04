@@ -131,15 +131,15 @@ namespace SeleniumLibrary.SeleniumBO
                 }
             }
 
-            DataColumn riskFreeRateColumn = new DataColumn("Risk_Free_Rate", typeof(int));
-            riskFreeRateColumn.DefaultValue = 10;
+            DataColumn riskFreeRateColumn = new DataColumn("Risk_Free_Rate", typeof(double));
+            riskFreeRateColumn.DefaultValue = 0.1;
             dtCSV.Columns.Add(riskFreeRateColumn);
 
-            DataColumn guessVolColumn = new DataColumn("Guess_Volatility", typeof(int));
-            guessVolColumn.DefaultValue = 30;
+            DataColumn guessVolColumn = new DataColumn("Guess_Volatility", typeof(double));
+            guessVolColumn.DefaultValue = 0.3;
             dtCSV.Columns.Add(guessVolColumn);
 
-            DataColumn divYieldColumn = new DataColumn("Dividend_Yield", typeof(int));
+            DataColumn divYieldColumn = new DataColumn("Dividend_Yield", typeof(double));
             divYieldColumn.DefaultValue = 0;
             dtCSV.Columns.Add(divYieldColumn);
 
@@ -152,6 +152,18 @@ namespace SeleniumLibrary.SeleniumBO
             DataColumn IVColumn = new DataColumn("IV", typeof(double));
             dtCSV.Columns.Add(IVColumn);
 
+            DataColumn DeltaColumn = new DataColumn("Delta", typeof(double));
+            dtCSV.Columns.Add(DeltaColumn);
+
+            DataColumn ThetaColumn = new DataColumn("Theta", typeof(double));
+            dtCSV.Columns.Add(ThetaColumn);
+
+            DataColumn GammaColumn = new DataColumn("Gamma", typeof(double));
+            dtCSV.Columns.Add(GammaColumn);
+
+            DataColumn VegaColumn = new DataColumn("Vega", typeof(double));
+            dtCSV.Columns.Add(VegaColumn);
+
             foreach (DataRow row in dtCSV.Rows)
             {
                 if (row["Expiry"] != DBNull.Value)
@@ -160,6 +172,22 @@ namespace SeleniumLibrary.SeleniumBO
                     row["Time_To_Maturity_Years"] = Convert.ToDouble(row["TTE"]) / 365;
                     row["IV"] = ImpliedVolatility(row["Option_Type"], row["Underlying_Value"], row["Strike_Price"], row["Risk_Free_Rate"],
                         row["Time_To_Maturity_Years"], row["Dividend_Yield"], row["Close"], row["Guess_Volatility"]);
+                    row["Delta"] = OptionDelta(row["Option_Type"].ToString(), Convert.ToDouble(row["Underlying_Value"])
+                        , Convert.ToDouble(row["Strike_Price"]), Convert.ToDouble(row["Risk_Free_Rate"])
+                        , Convert.ToDouble(row["Time_To_Maturity_Years"]), Convert.ToDouble(row["IV"])/100
+                        , Convert.ToDouble(row["Dividend_Yield"]));
+                    row["Theta"] = OptionTheta(row["Option_Type"].ToString(), Convert.ToDouble(row["Underlying_Value"])
+                        , Convert.ToDouble(row["Strike_Price"]), Convert.ToDouble(row["Risk_Free_Rate"]),
+                       Convert.ToDouble(row["Time_To_Maturity_Years"]), Convert.ToDouble(row["IV"])/100
+                       , Convert.ToDouble(row["Dividend_Yield"]));
+                    row["Gamma"] = OptionGamma(Convert.ToDouble(row["Underlying_Value"])
+                        , Convert.ToDouble(row["Strike_Price"]), Convert.ToDouble(row["Risk_Free_Rate"])
+                        , Convert.ToDouble(row["Time_To_Maturity_Years"]), Convert.ToDouble(row["IV"])/100
+                        , Convert.ToDouble(row["Dividend_Yield"]));
+                    row["Vega"] = OptionVega(Convert.ToDouble(row["Underlying_Value"])
+                        , Convert.ToDouble(row["Strike_Price"]), Convert.ToDouble(row["Risk_Free_Rate"])
+                        , Convert.ToDouble(row["Time_To_Maturity_Years"]), Convert.ToDouble(row["IV"])/100
+                        , Convert.ToDouble(row["Dividend_Yield"]));
                 }
             }
 
@@ -196,8 +224,6 @@ namespace SeleniumLibrary.SeleniumBO
 
         public double ImpliedVolatility(object CallOrPut, object S, object K, object r, object T, object q, object OptionValue, object guess)
         {
-            r = Convert.ToDouble(r) / 100;
-            guess = Convert.ToDouble(guess) / 100;
             double retValue;
 
             double epsilon;
@@ -233,25 +259,22 @@ namespace SeleniumLibrary.SeleniumBO
         }
 
         #region Greeks
-        public double dOne(object S, object X, object T, object r, object v, object d)
+        public double dOne(double S, double X, double T, double r, double v, double d)
         {
-            r = Convert.ToDouble(r) / 100;
-            v = Convert.ToDouble(v) / 100;
-
-            return (Math.Log(Convert.ToDouble(S) / Convert.ToDouble(X)) + (Convert.ToDouble(r) - Convert.ToDouble(d) + (0.5 * Math.Pow(Convert.ToDouble(v), 2))) * Convert.ToDouble(T)) / (Convert.ToDouble(v) * (Math.Sqrt(Convert.ToDouble(T))));
+           return (Math.Log(S / X) + (r - d + 0.5 * Math.Pow(v, 2)) * T) / (v * (Math.Sqrt(T)));
         }
 
-        public double NdOne(object S, object X, object T, object r, object v, object d)
+        public double NdOne(double S, double X, double T, double r, double v, double d)
         {
-            return Math.Exp(-(Math.Pow(dOne(S, X, T, r, v, d), 2)) / (double)2) / (double)(Math.Sqrt(2 * Math.PI));
+            return Math.Exp(-(Math.Pow(dOne(S, X, T, r, v, d), 2)) / 2) / (Math.Sqrt(2 * Math.PI));
         }
 
-        public double dTwo(object S, object X, object T, object r, object v, object d)
+        public double dTwo(double S, double X, double T, double r, double v, double d)
         {
-            return dOne(S, X, T, r, v, d) - (Convert.ToDouble(v) / 100) * Math.Sqrt(Convert.ToDouble(T));
+            return dOne(S, X, T, r, v, d) - (v) * Math.Sqrt(T);
         }
 
-        public double NdTwo(object S, object X, object T, object r, object v, object d)
+        public double NdTwo(double S, double X, double T, double r, double v, double d)
         {
             return NormsDistribution.N(dTwo(S, X, T, r, v, d));
         }
@@ -264,7 +287,7 @@ namespace SeleniumLibrary.SeleniumBO
         //        OptionPrice = X * Exp(-r * T) * Application.NormSDist(-dTwo(S, X, T, r, v, d)) - Exp(-d * T) * S * Application.NormSDist(-dOne(S, X, T, r, v, d));
         //}
 
-        public double OptionDelta(object OptionType, object S, object X, object T, object r, object v, object d)
+        public double OptionDelta(string OptionType, double S, double X, double r, double T, double v, double d)
         {
             double retValue = 0;
             if (OptionType.ToString() == "CE")
@@ -275,25 +298,25 @@ namespace SeleniumLibrary.SeleniumBO
             return Math.Round(retValue,2);
         }
 
-        public double OptionTheta(object OptionType, object S, object X, object T, object r, object v, object d)
+        public double OptionTheta(string OptionType, double S, double X, double r, double T, double v, double d)
         {
             double retValue = 0;
             if (OptionType.ToString() == "CE")
-                retValue = (-(Convert.ToDouble(S) * (Convert.ToDouble(v)/100) * NdOne(S, X, T, r, v, d)) / (double)(2 * Math.Sqrt(Convert.ToDouble(T))) - (Convert.ToDouble(r)/100) * Convert.ToDouble(X) * Math.Exp(-1 * (Convert.ToDouble(r)/100) * (Convert.ToDouble(T))) * NdTwo(S, X, T, r, v, d)) /365;
+                retValue = (-(S * v * NdOne(S, X, T, r, v, d)) / (double)(2 * Math.Sqrt(T)) - r * X * Math.Exp(-r * (T)) * NdTwo(S, X, T, r, v, d)) /365;
             else if (OptionType.ToString() == "PE")
-                retValue = (-(Convert.ToDouble(S) * (Convert.ToDouble(v)/100) * NdOne(S, X, T, r, v, d)) / (double)(2 * Math.Sqrt(Convert.ToDouble(T))) + (Convert.ToDouble(r)/100) * Convert.ToDouble(X) * Math.Exp(-1 * (Convert.ToDouble(r)/100) * (Convert.ToDouble(T))) * (1 - NdTwo(S, X, T, r, v, d))) /365;
+                retValue = (-(S * v * NdOne(S, X, T, r, v, d)) / (double)(2 * Math.Sqrt(T)) + r * X * Math.Exp(-r * (T)) * (1 - NdTwo(S, X, T, r, v, d))) / 365;
 
             return Math.Round(retValue,2);
         }
 
-        public double OptionGamma(object S, object X, object T, object r, object v, object d)
+        public double OptionGamma(double S, double X, double r, double T, double v, double d)
         {
-            return Math.Round(NdOne(S, X, T, r, v, d) / (Convert.ToDouble(S) * ((Convert.ToDouble(v)/100) * Math.Sqrt(Convert.ToDouble(T)))),4);
+            return Math.Round(NdOne(S, X, T, r, v, d) / (S * (v * Math.Sqrt(T))),4);
         }
 
-        public double OptionVega(object S, object X, object T, object r, object v, object d)
+        public double OptionVega(double S, double X, double r, double T, double v, double d)
         {
-            return Math.Round(0.01 * Convert.ToDouble(S) * Math.Sqrt(Convert.ToDouble(T)) * NdOne(S, X, T, r, v, d),4);
+            return Math.Round(0.01 * S * Math.Sqrt(T) * NdOne(S, X, T, r, v, d),4);
         }
 
         //public void OptionRho(object OptionType, object S, object X, object T, object r, object v, object d)
