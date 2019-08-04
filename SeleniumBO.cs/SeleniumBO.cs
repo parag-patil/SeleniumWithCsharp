@@ -233,67 +233,76 @@ namespace SeleniumLibrary.SeleniumBO
         }
 
         #region Greeks
-    //    public void dOne(object S, object X, object T, object r, object v, object d)
-    //{
-    //    dOne = (Log(S / (double)X) + (r - d + 0.5 * Math.Pow(v, 2)) * T) / (double)(v * (Sqr(T)));
-    //}
+        public double dOne(object S, object X, object T, object r, object v, object d)
+        {
+            r = Convert.ToDouble(r) / 100;
+            v = Convert.ToDouble(v) / 100;
 
-    //public void NdOne(object S, object X, object T, object r, object v, object d)
-    //{
-    //    NdOne = Exp(-(Math.Pow(dOne(S, X, T, r, v, d), 2)) / (double)2) / (double)(Sqr(2 * Application.WorksheetFunction.Pi()));
-    //}
+            return (Math.Log(Convert.ToDouble(S) / Convert.ToDouble(X)) + (Convert.ToDouble(r) - Convert.ToDouble(d) + (0.5 * Math.Pow(Convert.ToDouble(v), 2))) * Convert.ToDouble(T)) / (Convert.ToDouble(v) * (Math.Sqrt(Convert.ToDouble(T))));
+        }
 
-    //public void dTwo(object S, object X, object T, object r, object v, object d)
-    //{
-    //    dTwo = dOne(S, X, T, r, v, d) - v * Sqr(T);
-    //}
+        public double NdOne(object S, object X, object T, object r, object v, object d)
+        {
+            return Math.Exp(-(Math.Pow(dOne(S, X, T, r, v, d), 2)) / (double)2) / (double)(Math.Sqrt(2 * Math.PI));
+        }
 
-    //public void NdTwo(object S, object X, object T, object r, object v, object d)
-    //{
-    //    NdTwo = Application.NormSDist(dTwo(S, X, T, r, v, d));
-    //}
+        public double dTwo(object S, object X, object T, object r, object v, object d)
+        {
+            return dOne(S, X, T, r, v, d) - (Convert.ToDouble(v) / 100) * Math.Sqrt(Convert.ToDouble(T));
+        }
 
-    //public void OptionPrice(object OptionType, object S, object X, object T, object r, object v, object d)
-    //{
-    //    if (OptionType == "Call")
-    //        OptionPrice = Exp(-d * T) * S * Application.NormSDist(dOne(S, X, T, r, v, d)) - X * Exp(-r * T) * Application.NormSDist(dOne(S, X, T, r, v, d) - v * Sqr(T));
-    //    else if (OptionType == "Put")
-    //        OptionPrice = X * Exp(-r * T) * Application.NormSDist(-dTwo(S, X, T, r, v, d)) - Exp(-d * T) * S * Application.NormSDist(-dOne(S, X, T, r, v, d));
-    //}
+        public double NdTwo(object S, object X, object T, object r, object v, object d)
+        {
+            return NormsDistribution.N(dTwo(S, X, T, r, v, d));
+        }
 
-    //public void OptionDelta(object OptionType, object S, object X, object T, object r, object v, object d)
-    //{
-    //    if (OptionType == "Call")
-    //        OptionDelta = Application.NormSDist(dOne(S, X, T, r, v, d));
-    //    else if (OptionType == "Put")
-    //        OptionDelta = Application.NormSDist(dOne(S, X, T, r, v, d)) - 1;
-    //}
+        //public void OptionPrice(object OptionType, object S, object X, object T, object r, object v, object d)
+        //{
+        //    if (OptionType == "Call")
+        //        OptionPrice = Exp(-d * T) * S * Application.NormSDist(dOne(S, X, T, r, v, d)) - X * Exp(-r * T) * Application.NormSDist(dOne(S, X, T, r, v, d) - v * Sqr(T));
+        //    else if (OptionType == "Put")
+        //        OptionPrice = X * Exp(-r * T) * Application.NormSDist(-dTwo(S, X, T, r, v, d)) - Exp(-d * T) * S * Application.NormSDist(-dOne(S, X, T, r, v, d));
+        //}
 
-    //public void OptionTheta(object OptionType, object S, object X, object T, object r, object v, object d)
-    //{
-    //    if (OptionType == "Call")
-    //        OptionTheta = (-(S * v * NdOne(S, X, T, r, v, d)) / (double)(2 * Sqr(T)) - r * X * Exp(-r * (T)) * NdTwo(S, X, T, r, v, d)) / (double)365;
-    //    else if (OptionType == "Put")
-    //        OptionTheta = (-(S * v * NdOne(S, X, T, r, v, d)) / (double)(2 * Sqr(T)) + r * X * Exp(-r * (T)) * (1 - NdTwo(S, X, T, r, v, d))) / (double)365;
-    //}
+        public double OptionDelta(object OptionType, object S, object X, object T, object r, object v, object d)
+        {
+            double retValue = 0;
+            if (OptionType.ToString() == "CE")
+                retValue = NormsDistribution.N(dOne(S, X, T, r, v, d));
+            else if (OptionType.ToString() == "PE")
+                retValue = NormsDistribution.N(dOne(S, X, T, r, v, d)) - 1;
 
-    //public void Gamma(object S, object X, object T, object r, object v, object d)
-    //{
-    //    Gamma = NdOne(S, X, T, r, v, d) / (double)(S * (v * Sqr(T)));
-    //}
+            return Math.Round(retValue,2);
+        }
 
-    //public void Vega(object S, object X, object T, object r, object v, object d)
-    //{
-    //    Vega = 0.01 * S * Sqr(T) * NdOne(S, X, T, r, v, d);
-    //}
+        public double OptionTheta(object OptionType, object S, object X, object T, object r, object v, object d)
+        {
+            double retValue = 0;
+            if (OptionType.ToString() == "CE")
+                retValue = (-(Convert.ToDouble(S) * (Convert.ToDouble(v)/100) * NdOne(S, X, T, r, v, d)) / (double)(2 * Math.Sqrt(Convert.ToDouble(T))) - (Convert.ToDouble(r)/100) * Convert.ToDouble(X) * Math.Exp(-1 * (Convert.ToDouble(r)/100) * (Convert.ToDouble(T))) * NdTwo(S, X, T, r, v, d)) /365;
+            else if (OptionType.ToString() == "PE")
+                retValue = (-(Convert.ToDouble(S) * (Convert.ToDouble(v)/100) * NdOne(S, X, T, r, v, d)) / (double)(2 * Math.Sqrt(Convert.ToDouble(T))) + (Convert.ToDouble(r)/100) * Convert.ToDouble(X) * Math.Exp(-1 * (Convert.ToDouble(r)/100) * (Convert.ToDouble(T))) * (1 - NdTwo(S, X, T, r, v, d))) /365;
 
-    //public void OptionRho(object OptionType, object S, object X, object T, object r, object v, object d)
-    //{
-    //    if (OptionType == "Call")
-    //        OptionRho = 0.01 * X * T * Exp(-r * T) * Application.NormSDist(dTwo(S, X, T, r, v, d));
-    //    else if (OptionType == "Put")
-    //        OptionRho = -0.01 * X * T * Exp(-r * T) * (1 - Application.NormSDist(dTwo(S, X, T, r, v, d)));
-    //}
+            return Math.Round(retValue,2);
+        }
+
+        public double OptionGamma(object S, object X, object T, object r, object v, object d)
+        {
+            return Math.Round(NdOne(S, X, T, r, v, d) / (Convert.ToDouble(S) * ((Convert.ToDouble(v)/100) * Math.Sqrt(Convert.ToDouble(T)))),4);
+        }
+
+        public double OptionVega(object S, object X, object T, object r, object v, object d)
+        {
+            return Math.Round(0.01 * Convert.ToDouble(S) * Math.Sqrt(Convert.ToDouble(T)) * NdOne(S, X, T, r, v, d),4);
+        }
+
+        //public void OptionRho(object OptionType, object S, object X, object T, object r, object v, object d)
+        //{
+        //    if (OptionType == "Call")
+        //        OptionRho = 0.01 * X * T * Exp(-r * T) * Application.NormSDist(dTwo(S, X, T, r, v, d));
+        //    else if (OptionType == "Put")
+        //        OptionRho = -0.01 * X * T * Exp(-r * T) * (1 - Application.NormSDist(dTwo(S, X, T, r, v, d)));
+        //}
         #endregion Greeks
     }
 }

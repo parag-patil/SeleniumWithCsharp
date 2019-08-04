@@ -81,10 +81,16 @@ namespace SeleniumWindowsApp
         private void Button1_Click(object sender, EventArgs e)
         {
             SeleniumBO bo = new SeleniumBO("");
-            var r = bo.ImpliedVolatility("CE", "489.65", 440, 0.1, 0.073972602739726, 0, 92.8, 0.3);
+            var r = bo.ImpliedVolatility("CE", "489.65", 440, 10, 0.073972602739726, 0, 92.8, 30);
             MessageBox.Show("IV is " + r);
-            var d = bo.OptionDelta("CE", 489.65, 440, 0.073972602739726, 0.1, 125.79, 0);
+            var d = bo.OptionDelta("CE", 489.65, 440, 0.073972602739726, 10, 125.79, 0);
             MessageBox.Show("Delta is " + d);
+            var t = bo.OptionTheta("CE", 489.65, 440, 0.073972602739726, 10, 125.79, 0);
+            MessageBox.Show("Theta is " + t);
+            var g = bo.OptionGamma(489.65, 440, 0.073972602739726, 10,125.79, 0);
+            MessageBox.Show("Gamma is " + g);
+            var v = bo.OptionVega(489.65, 440, 0.073972602739726, 10,125.79,0);
+            MessageBox.Show("Vega is " + v);
         }
     }
 }
