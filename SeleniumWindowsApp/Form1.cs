@@ -38,7 +38,7 @@ namespace SeleniumWindowsApp
             while (days <= (newToDate - newFromDate).TotalDays)
             {
                 newToDate = newFromDate.AddDays(days);
-                tmpTable = sbo.ExecuteSelenium(txtSymbol.Text, newFromDate, newToDate);
+                tmpTable = sbo.ExecuteSelenium(txtSymbol.Text, newFromDate, newToDate, cBoxOptionType.SelectedItem.ToString(),cBoxInstrumentType.SelectedItem.ToString());
                 if (tmpTable != null)
                 {
                     data.Merge(tmpTable);
@@ -48,7 +48,7 @@ namespace SeleniumWindowsApp
             }
             if((newToDate - newFromDate).TotalDays < days)
             {
-                tmpTable = sbo.ExecuteSelenium(txtSymbol.Text, newFromDate, newToDate);
+                tmpTable = sbo.ExecuteSelenium(txtSymbol.Text, newFromDate, newToDate,cBoxOptionType.SelectedItem.ToString(), cBoxInstrumentType.SelectedItem.ToString());
                 if(tmpTable!=null)
                 {
                     data.Merge(tmpTable);
@@ -77,7 +77,7 @@ namespace SeleniumWindowsApp
                     bulkCopy.ColumnMappings.Add(col.ColumnName, col.ColumnName);
                 }
                 bulkCopy.BulkCopyTimeout = 600;
-                bulkCopy.DestinationTableName = "dbo.RBLBANK";
+                bulkCopy.DestinationTableName = "OptionChainGreeks";
                 bulkCopy.WriteToServer(data);
             }
         }

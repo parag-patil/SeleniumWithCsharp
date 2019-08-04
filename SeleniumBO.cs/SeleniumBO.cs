@@ -19,8 +19,8 @@ namespace SeleniumLibrary.SeleniumBO
         {
             _url = url;
         }
-       
-        public DataTable ExecuteSelenium(string symbolValue,DateTime fromDateVal,DateTime toDateVal)
+
+        public DataTable ExecuteSelenium(string symbolValue, DateTime fromDateVal, DateTime toDateVal,string option_Type,string instrumentType)
         {
             _driver = new ChromeDriver();
             _driver.Navigate().GoToUrl(_url);
@@ -33,7 +33,7 @@ namespace SeleniumLibrary.SeleniumBO
                 //Find and set Instrument Type Dropdown
                 IWebElement element = _driver.FindElement(By.Name("instrumentType"));
                 var selectElement = new SelectElement(element);
-                selectElement.SelectByText("Stock Options");
+                selectElement.SelectByText(instrumentType);
 
                 _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(30);
 
@@ -46,7 +46,7 @@ namespace SeleniumLibrary.SeleniumBO
                 //Find and set Instrument Type Dropdown
                 IWebElement optionTypeElement = _driver.FindElement(By.Name("optionType"));
                 var optionType = new SelectElement(optionTypeElement);
-                optionType.SelectByText("CE");
+                optionType.SelectByText(option_Type);
 
 
                 _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(30);
@@ -86,14 +86,15 @@ namespace SeleniumLibrary.SeleniumBO
                 //_driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(60);
                 return d;
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 return null;
             }
             finally
             {
                 _driver.Close();
             }
-           
+
         }
         private DataTable createDataTable(string[] csvArray)
         {
@@ -170,28 +171,42 @@ namespace SeleniumLibrary.SeleniumBO
                 {
                     row["TTE"] = ((int)(Convert.ToDateTime(row["Expiry"]) - Convert.ToDateTime(row["Date"])).TotalDays);
                     row["Time_To_Maturity_Years"] = Convert.ToDouble(row["TTE"]) / 365;
-                    row["IV"] = ImpliedVolatility(row["Option_Type"], row["Underlying_Value"], row["Strike_Price"], row["Risk_Free_Rate"],
+                    row["IV"] = ImpliedVolatility(row["Option_Type"]
+                        , (row["Underlying_Value"].ToString() == "-" ? 0 : row["Underlying_Value"])
+                        , row["Strike_Price"], row["Risk_Free_Rate"],
                         row["Time_To_Maturity_Years"], row["Dividend_Yield"], row["Close"], row["Guess_Volatility"]);
-                    row["Delta"] = OptionDelta(row["Option_Type"].ToString(), Convert.ToDouble(row["Underlying_Value"])
-                        , Convert.ToDouble(row["Strike_Price"]), Convert.ToDouble(row["Risk_Free_Rate"])
-                        , Convert.ToDouble(row["Time_To_Maturity_Years"]), Convert.ToDouble(row["IV"])/100
-                        , Convert.ToDouble(row["Dividend_Yield"]));
-                    row["Theta"] = OptionTheta(row["Option_Type"].ToString(), Convert.ToDouble(row["Underlying_Value"])
-                        , Convert.ToDouble(row["Strike_Price"]), Convert.ToDouble(row["Risk_Free_Rate"]),
-                       Convert.ToDouble(row["Time_To_Maturity_Years"]), Convert.ToDouble(row["IV"])/100
-                       , Convert.ToDouble(row["Dividend_Yield"]));
-                    row["Gamma"] = OptionGamma(Convert.ToDouble(row["Underlying_Value"])
-                        , Convert.ToDouble(row["Strike_Price"]), Convert.ToDouble(row["Risk_Free_Rate"])
-                        , Convert.ToDouble(row["Time_To_Maturity_Years"]), Convert.ToDouble(row["IV"])/100
-                        , Convert.ToDouble(row["Dividend_Yield"]));
-                    row["Vega"] = OptionVega(Convert.ToDouble(row["Underlying_Value"])
-                        , Convert.ToDouble(row["Strike_Price"]), Convert.ToDouble(row["Risk_Free_Rate"])
-                        , Convert.ToDouble(row["Time_To_Maturity_Years"]), Convert.ToDouble(row["IV"])/100
-                        , Convert.ToDouble(row["Dividend_Yield"]));
+                    if ((Convert.ToDateTime(row["Date"]) == Convert.ToDateTime(row["Expiry"])) || (row["Underlying_Value"].ToString()=="-"))
+                    {
+                        row["Delta"] = 0;
+                        row["Theta"] = 0;
+                        row["Gamma"] = 0;
+                        row["Vega"] = 0;
+                    }
+                    else
+                    {
+                        row["Delta"] = OptionDelta(row["Option_Type"].ToString()
+                            , (row["Underlying_Value"].ToString() == "-" ? 0 : Convert.ToDouble(row["Underlying_Value"]))
+                            , Convert.ToDouble(row["Strike_Price"]), Convert.ToDouble(row["Risk_Free_Rate"])
+                            , Convert.ToDouble(row["Time_To_Maturity_Years"]), Convert.ToDouble(row["IV"]) / 100
+                            , Convert.ToDouble(row["Dividend_Yield"]));
+                        row["Theta"] = OptionTheta(row["Option_Type"].ToString()
+                            , (row["Underlying_Value"].ToString() == "-" ? 0 : Convert.ToDouble(row["Underlying_Value"]))
+                            , Convert.ToDouble(row["Strike_Price"]), Convert.ToDouble(row["Risk_Free_Rate"]),
+                           Convert.ToDouble(row["Time_To_Maturity_Years"]), Convert.ToDouble(row["IV"]) / 100
+                           , Convert.ToDouble(row["Dividend_Yield"]));
+                        row["Gamma"] = OptionGamma((row["Underlying_Value"].ToString() == "-" ? 0 : Convert.ToDouble(row["Underlying_Value"]))
+                            , Convert.ToDouble(row["Strike_Price"]), Convert.ToDouble(row["Risk_Free_Rate"])
+                            , Convert.ToDouble(row["Time_To_Maturity_Years"]), Convert.ToDouble(row["IV"]) / 100
+                            , Convert.ToDouble(row["Dividend_Yield"]));
+                        row["Vega"] = OptionVega((row["Underlying_Value"].ToString() == "-" ? 0 : Convert.ToDouble(row["Underlying_Value"]))
+                            , Convert.ToDouble(row["Strike_Price"]), Convert.ToDouble(row["Risk_Free_Rate"])
+                            , Convert.ToDouble(row["Time_To_Maturity_Years"]), Convert.ToDouble(row["IV"]) / 100
+                            , Convert.ToDouble(row["Dividend_Yield"]));
+                    }
                 }
             }
 
-            
+
 
             return dtCSV;
 
@@ -255,13 +270,13 @@ namespace SeleniumLibrary.SeleniumBO
             while (true);
             retValue = vol_1;
 
-            return Math.Round(retValue*100,2);
+            return Math.Round(retValue * 100, 2);
         }
 
         #region Greeks
         public double dOne(double S, double X, double T, double r, double v, double d)
         {
-           return (Math.Log(S / X) + (r - d + 0.5 * Math.Pow(v, 2)) * T) / (v * (Math.Sqrt(T)));
+            return (Math.Log(S / X) + (r - d + 0.5 * Math.Pow(v, 2)) * T) / (v * (Math.Sqrt(T)));
         }
 
         public double NdOne(double S, double X, double T, double r, double v, double d)
@@ -295,28 +310,28 @@ namespace SeleniumLibrary.SeleniumBO
             else if (OptionType.ToString() == "PE")
                 retValue = NormsDistribution.N(dOne(S, X, T, r, v, d)) - 1;
 
-            return Math.Round(retValue,2);
+            return Math.Round(retValue, 2);
         }
 
         public double OptionTheta(string OptionType, double S, double X, double r, double T, double v, double d)
         {
             double retValue = 0;
             if (OptionType.ToString() == "CE")
-                retValue = (-(S * v * NdOne(S, X, T, r, v, d)) / (double)(2 * Math.Sqrt(T)) - r * X * Math.Exp(-r * (T)) * NdTwo(S, X, T, r, v, d)) /365;
+                retValue = (-(S * v * NdOne(S, X, T, r, v, d)) / (double)(2 * Math.Sqrt(T)) - r * X * Math.Exp(-r * (T)) * NdTwo(S, X, T, r, v, d)) / 365;
             else if (OptionType.ToString() == "PE")
                 retValue = (-(S * v * NdOne(S, X, T, r, v, d)) / (double)(2 * Math.Sqrt(T)) + r * X * Math.Exp(-r * (T)) * (1 - NdTwo(S, X, T, r, v, d))) / 365;
 
-            return Math.Round(retValue,2);
+            return Math.Round(retValue, 2);
         }
 
         public double OptionGamma(double S, double X, double r, double T, double v, double d)
         {
-            return Math.Round(NdOne(S, X, T, r, v, d) / (S * (v * Math.Sqrt(T))),4);
+            return Math.Round(NdOne(S, X, T, r, v, d) / (S * (v * Math.Sqrt(T))), 4);
         }
 
         public double OptionVega(double S, double X, double r, double T, double v, double d)
         {
-            return Math.Round(0.01 * S * Math.Sqrt(T) * NdOne(S, X, T, r, v, d),4);
+            return Math.Round(0.01 * S * Math.Sqrt(T) * NdOne(S, X, T, r, v, d), 4);
         }
 
         //public void OptionRho(object OptionType, object S, object X, object T, object r, object v, object d)
