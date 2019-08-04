@@ -1,4 +1,5 @@
-﻿using OpenQA.Selenium;
+﻿using NormalDistributionNamespace;
+using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using System;
@@ -24,7 +25,7 @@ namespace SeleniumLibrary.SeleniumBO
             _driver = new ChromeDriver();
             _driver.Navigate().GoToUrl(_url);
             _driver.Manage().Window.Maximize();
-            _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
+            _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(20);
             DataTable d;
             try
             {
@@ -41,7 +42,7 @@ namespace SeleniumLibrary.SeleniumBO
                 var symbol = new SelectElement(symbolElement);
                 symbol.SelectByValue(symbolValue.ToUpper());
 
-                _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(10);
+                _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(15);
                 //Find and set Instrument Type Dropdown
                 IWebElement optionTypeElement = _driver.FindElement(By.Name("optionType"));
                 var optionType = new SelectElement(optionTypeElement);
@@ -105,7 +106,14 @@ namespace SeleniumLibrary.SeleniumBO
                 {
                     for (int i = 0; i < valueArray.Length; i++)
                     {
-                        dtCSV.Columns.Add(valueArray[i].Replace("\"", "").Replace(" ","_"), typeof(String));
+                        if (valueArray[i].Replace("\"", "").Replace(" ", "_") == "Date" || valueArray[i].Replace("\"", "").Replace(" ", "_") == "Expiry")
+                        {
+                            dtCSV.Columns.Add(valueArray[i].Replace("\"", "").Replace(" ", "_"), typeof(DateTime));
+                        }
+                        else
+                        {
+                            dtCSV.Columns.Add(valueArray[i].Replace("\"", "").Replace(" ", "_"), typeof(String));
+                        }
                     }
                     idx++;
 
@@ -122,8 +130,170 @@ namespace SeleniumLibrary.SeleniumBO
 
                 }
             }
+
+            DataColumn riskFreeRateColumn = new DataColumn("Risk_Free_Rate", typeof(int));
+            riskFreeRateColumn.DefaultValue = 10;
+            dtCSV.Columns.Add(riskFreeRateColumn);
+
+            DataColumn guessVolColumn = new DataColumn("Guess_Volatility", typeof(int));
+            guessVolColumn.DefaultValue = 30;
+            dtCSV.Columns.Add(guessVolColumn);
+
+            DataColumn divYieldColumn = new DataColumn("Dividend_Yield", typeof(int));
+            divYieldColumn.DefaultValue = 0;
+            dtCSV.Columns.Add(divYieldColumn);
+
+            DataColumn TTEColumn = new DataColumn("TTE", typeof(int));
+            dtCSV.Columns.Add(TTEColumn);
+
+            DataColumn TimeToMaturityYrsColumns = new DataColumn("Time_To_Maturity_Years", typeof(decimal));
+            dtCSV.Columns.Add(TimeToMaturityYrsColumns);
+
+            DataColumn IVColumn = new DataColumn("IV", typeof(double));
+            dtCSV.Columns.Add(IVColumn);
+
+            foreach (DataRow row in dtCSV.Rows)
+            {
+                if (row["Expiry"] != DBNull.Value)
+                {
+                    row["TTE"] = ((int)(Convert.ToDateTime(row["Expiry"]) - Convert.ToDateTime(row["Date"])).TotalDays);
+                    row["Time_To_Maturity_Years"] = Convert.ToDouble(row["TTE"]) / 365;
+                    row["IV"] = ImpliedVolatility(row["Option_Type"], row["Underlying_Value"], row["Strike_Price"], row["Risk_Free_Rate"],
+                        row["Time_To_Maturity_Years"], row["Dividend_Yield"], row["Close"], row["Guess_Volatility"]);
+                }
+            }
+
+            
+
             return dtCSV;
 
         }
+
+        public double EuropeanOption(string CallOrPut, double S, double K, double v, double r, double T, double q)
+        {
+            double retValue;
+            double d1;
+            double d2;
+            double nd1;
+            double nd2;
+            double nnd1;
+            double nnd2;
+
+            d1 = (Math.Log(S / K) + (r - q + 0.5 * Math.Pow(v, 2)) * T) / (double)(v * Math.Sqrt(T));
+            d2 = (Math.Log(S / (double)K) + (r - q - 0.5 * Math.Pow(v, 2)) * T) / (double)(v * Math.Sqrt(T));
+            nd1 = NormsDistribution.N(d1);
+            nd2 = NormsDistribution.N(d2);
+            nnd1 = NormsDistribution.N(-d1);
+            nnd2 = NormsDistribution.N(-d2);
+
+            if (CallOrPut == "CE")
+                retValue = S * Math.Exp(-q * T) * nd1 - K * Math.Exp(-r * T) * nd2;
+            else
+                retValue = -S * Math.Exp(-q * T) * nnd1 + K * Math.Exp(-r * T) * nnd2;
+
+            return retValue;
+        }
+
+        public double ImpliedVolatility(object CallOrPut, object S, object K, object r, object T, object q, object OptionValue, object guess)
+        {
+            r = Convert.ToDouble(r) / 100;
+            guess = Convert.ToDouble(guess) / 100;
+            double retValue;
+
+            double epsilon;
+            double dVol;
+            double vol_1;
+            int i;
+            int maxIter;
+            double Value_1;
+            double vol_2;
+            double Value_2;
+            double dx;
+
+            dVol = 0.00001;
+            epsilon = 0.00001;
+            maxIter = 100;
+            vol_1 = Convert.ToDouble(guess);
+            i = 1;
+            do
+            {
+                Value_1 = EuropeanOption(CallOrPut.ToString(), Convert.ToDouble(S), Convert.ToDouble(K), vol_1, Convert.ToDouble(r), Convert.ToDouble(T), Convert.ToDouble(q));
+                vol_2 = vol_1 - dVol;
+                Value_2 = EuropeanOption(CallOrPut.ToString(), Convert.ToDouble(S), Convert.ToDouble(K), vol_2, Convert.ToDouble(r), Convert.ToDouble(T), Convert.ToDouble(q));
+                dx = (Value_2 - Value_1) / dVol;
+                if (Math.Abs(dx) < epsilon | i == maxIter)
+                    break;
+                vol_1 = vol_1 - (Convert.ToDouble(OptionValue) - Value_1) / dx;
+                i = i + 1;
+            }
+            while (true);
+            retValue = vol_1;
+
+            return Math.Round(retValue*100,2);
+        }
+
+        #region Greeks
+    //    public void dOne(object S, object X, object T, object r, object v, object d)
+    //{
+    //    dOne = (Log(S / (double)X) + (r - d + 0.5 * Math.Pow(v, 2)) * T) / (double)(v * (Sqr(T)));
+    //}
+
+    //public void NdOne(object S, object X, object T, object r, object v, object d)
+    //{
+    //    NdOne = Exp(-(Math.Pow(dOne(S, X, T, r, v, d), 2)) / (double)2) / (double)(Sqr(2 * Application.WorksheetFunction.Pi()));
+    //}
+
+    //public void dTwo(object S, object X, object T, object r, object v, object d)
+    //{
+    //    dTwo = dOne(S, X, T, r, v, d) - v * Sqr(T);
+    //}
+
+    //public void NdTwo(object S, object X, object T, object r, object v, object d)
+    //{
+    //    NdTwo = Application.NormSDist(dTwo(S, X, T, r, v, d));
+    //}
+
+    //public void OptionPrice(object OptionType, object S, object X, object T, object r, object v, object d)
+    //{
+    //    if (OptionType == "Call")
+    //        OptionPrice = Exp(-d * T) * S * Application.NormSDist(dOne(S, X, T, r, v, d)) - X * Exp(-r * T) * Application.NormSDist(dOne(S, X, T, r, v, d) - v * Sqr(T));
+    //    else if (OptionType == "Put")
+    //        OptionPrice = X * Exp(-r * T) * Application.NormSDist(-dTwo(S, X, T, r, v, d)) - Exp(-d * T) * S * Application.NormSDist(-dOne(S, X, T, r, v, d));
+    //}
+
+    //public void OptionDelta(object OptionType, object S, object X, object T, object r, object v, object d)
+    //{
+    //    if (OptionType == "Call")
+    //        OptionDelta = Application.NormSDist(dOne(S, X, T, r, v, d));
+    //    else if (OptionType == "Put")
+    //        OptionDelta = Application.NormSDist(dOne(S, X, T, r, v, d)) - 1;
+    //}
+
+    //public void OptionTheta(object OptionType, object S, object X, object T, object r, object v, object d)
+    //{
+    //    if (OptionType == "Call")
+    //        OptionTheta = (-(S * v * NdOne(S, X, T, r, v, d)) / (double)(2 * Sqr(T)) - r * X * Exp(-r * (T)) * NdTwo(S, X, T, r, v, d)) / (double)365;
+    //    else if (OptionType == "Put")
+    //        OptionTheta = (-(S * v * NdOne(S, X, T, r, v, d)) / (double)(2 * Sqr(T)) + r * X * Exp(-r * (T)) * (1 - NdTwo(S, X, T, r, v, d))) / (double)365;
+    //}
+
+    //public void Gamma(object S, object X, object T, object r, object v, object d)
+    //{
+    //    Gamma = NdOne(S, X, T, r, v, d) / (double)(S * (v * Sqr(T)));
+    //}
+
+    //public void Vega(object S, object X, object T, object r, object v, object d)
+    //{
+    //    Vega = 0.01 * S * Sqr(T) * NdOne(S, X, T, r, v, d);
+    //}
+
+    //public void OptionRho(object OptionType, object S, object X, object T, object r, object v, object d)
+    //{
+    //    if (OptionType == "Call")
+    //        OptionRho = 0.01 * X * T * Exp(-r * T) * Application.NormSDist(dTwo(S, X, T, r, v, d));
+    //    else if (OptionType == "Put")
+    //        OptionRho = -0.01 * X * T * Exp(-r * T) * (1 - Application.NormSDist(dTwo(S, X, T, r, v, d)));
+    //}
+        #endregion Greeks
     }
 }

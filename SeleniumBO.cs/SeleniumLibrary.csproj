@@ -50,6 +50,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="NormsDistribution.cs" />
     <Compile Include="SeleniumBO.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

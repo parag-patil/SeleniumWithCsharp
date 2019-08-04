@@ -54,6 +54,11 @@ namespace SeleniumWindowsApp
                 }
             }
 
+            DataRow[] dr = data.Select("No._of_contracts=0 OR Symbol=''");
+            foreach(DataRow row in dr)
+            {
+                data.Rows.Remove(row);
+            }
             gvData.DataSource = data;
         }
 
@@ -68,9 +73,18 @@ namespace SeleniumWindowsApp
                     bulkCopy.ColumnMappings.Add(col.ColumnName, col.ColumnName);
                 }
                 bulkCopy.BulkCopyTimeout = 600;
-                bulkCopy.DestinationTableName = "dbo.OPTSTK_Stagging";
+                bulkCopy.DestinationTableName = "dbo.RBLBANK";
                 bulkCopy.WriteToServer(data);
             }
+        }
+
+        private void Button1_Click(object sender, EventArgs e)
+        {
+            SeleniumBO bo = new SeleniumBO("");
+            var r = bo.ImpliedVolatility("CE", "489.65", 440, 0.1, 0.073972602739726, 0, 92.8, 0.3);
+            MessageBox.Show("IV is " + r);
+            var d = bo.OptionDelta("CE", 489.65, 440, 0.073972602739726, 0.1, 125.79, 0);
+            MessageBox.Show("Delta is " + d);
         }
     }
 }
